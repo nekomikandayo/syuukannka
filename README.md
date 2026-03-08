@@ -1,17 +1,29 @@
-# habit_app
+# 習慣化アプリ (アプリ名未定)
 
-A new Flutter project.
+「継続する技術」のシンプルさをリスペクトしつつ、実行時間の計測とシビアな連続記録システムを取り入れた、新しい習慣化サポートアプリです。
 
-## Getting Started
+## 💡 コンセプト
+単に「やったか・やっていないか」のチェックだけでなく、**「どれくらいの時間取り組んだか」**を可視化することで達成感を高めます。また、2日連続でサボると連続記録（炎）がリセットされるシビアなルールにより、ユーザーの「途切れさせたくない」という心理に働きかけます。
 
-This project is a starting point for a Flutter application.
+## ✨ 主な機能
+* **複数習慣の管理**: 読書やプログラミング学習など、複数の習慣を並行して設定可能。
+* **タイマー計測**: ストップウォッチ形式で実行時間を正確に記録。
+* **シビアな連続記録（炎システム）**: 達成すると炎（🔥）が灯り、**2日連続で未実行の場合は記録が0にリセット**されるストリーク機能。
+* **強制リマインド**: 習慣設定時に必ず通知時間を設定（オフ不可）し、忘れを防止。
 
-A few resources to get you started if this is your first Flutter project:
+## 🛠 技術スタック
+* **フロントエンド**: Flutter (Dart)
+* **状態管理**: Riverpod (hooks_riverpod)
+* **ルーティング**: go_router
+* **バックエンド / BaaS**: Firebase (Authentication, Cloud Firestore)
+* **開発ツール**: Cursor
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📂 予定しているディレクトリ構成
+```text
+lib/
+├── main.dart
+├── models/       # データモデル (Habit, Logなど)
+├── providers/    # RiverpodのStateProvider/Notifier
+├── screens/      # 各画面のUI (Home, Timer, Settingsなど)
+├── services/     # Firebase連携などの外部通信ロジック
+└── widgets/      # 共通化されたUIコンポーネント
