@@ -6,7 +6,7 @@ class Habit {
     required this.title,
     this.currentStreak = 0,
     required this.reminderTime,
-    this.isCompletedToday = false,
+    this.lastCompletedDate,
     required this.targetDurationSeconds,
   });
 
@@ -14,16 +14,29 @@ class Habit {
   final String title;
   final int currentStreak;
   final ReminderTime reminderTime;
-  final bool isCompletedToday;
-  /// 目標時間（秒）。カウントダウンタイマーの初期値に使用する。
+  /// 最後に完了した日時。null は未完了またはリセット後を表す。
+  final DateTime? lastCompletedDate;
   final int targetDurationSeconds;
+
+  /// 今日のタスクが完了しているか。[lastCompletedDate] と現在日付（0時基準）で比較する。
+  bool get isCompletedToday {
+    if (lastCompletedDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final last = DateTime(
+      lastCompletedDate!.year,
+      lastCompletedDate!.month,
+      lastCompletedDate!.day,
+    );
+    return last == today;
+  }
 
   Habit copyWith({
     String? id,
     String? title,
     int? currentStreak,
     ReminderTime? reminderTime,
-    bool? isCompletedToday,
+    DateTime? lastCompletedDate,
     int? targetDurationSeconds,
   }) {
     return Habit(
@@ -31,7 +44,7 @@ class Habit {
       title: title ?? this.title,
       currentStreak: currentStreak ?? this.currentStreak,
       reminderTime: reminderTime ?? this.reminderTime,
-      isCompletedToday: isCompletedToday ?? this.isCompletedToday,
+      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       targetDurationSeconds: targetDurationSeconds ?? this.targetDurationSeconds,
     );
   }

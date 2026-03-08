@@ -53,7 +53,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       title: title,
       currentStreak: 0,
       reminderTime: ReminderTime(hour: _reminderTime.hour, minute: _reminderTime.minute),
-      isCompletedToday: false,
+      lastCompletedDate: null,
       targetDurationSeconds: minutes * 60,
     );
 

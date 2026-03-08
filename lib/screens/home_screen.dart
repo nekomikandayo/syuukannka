@@ -60,11 +60,20 @@ class _HabitListTile extends StatelessWidget {
               Text(
                 '${habit.currentStreak}日',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: habit.currentStreak > 0
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outline,
                     ),
               ),
               const SizedBox(width: 4),
-              const Text('🔥'),
+              if (habit.currentStreak > 0)
+                const Text('🔥')
+              else
+                Icon(
+                  Icons.local_fire_department,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.6),
+                ),
               const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
