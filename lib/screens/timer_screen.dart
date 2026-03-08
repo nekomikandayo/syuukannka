@@ -6,17 +6,44 @@ import '../models/habit_model.dart';
 import '../providers/habits_provider.dart';
 import '../providers/timer_provider.dart';
 
-/// タイマー画面。習慣ごとの実行時間を計測し、完了時に記録する。
-class TimerScreen extends ConsumerWidget {
+/// タイマー画面。習慣の目標時間でカウントダウンし、0秒で自動完了する。
+class TimerScreen extends ConsumerStatefulWidget {
   const TimerScreen({super.key, required this.habitId});
 
   final String habitId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TimerScreen> createState() => _TimerScreenState();
+}
+
+class _TimerScreenState extends ConsumerState<TimerScreen> {
+  /// まだ一度もスタートしていないときは習慣の目標時間を表示する。
+  int _displaySeconds(Habit habit, TimerState timerState) {
+    if (timerState.isRunning || timerState.remainingSeconds > 0 || timerState.reachedZero) {
+      return timerState.remainingSeconds;
+    }
+    return habit.targetDurationSeconds;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final habits = ref.watch(habitsProvider);
-    final habit = habits.where((h) => h.id == habitId).firstOrNull;
+    final habit = habits.where((h) => h.id == widget.habitId).firstOrNull;
     final timerState = ref.watch(timerProvider);
+    final timerNotifier = ref.read(timerProvider.notifier);
+
+    ref.listen<TimerState>(timerProvider, (prev, next) {
+      if (!next.reachedZero || habit == null) return;
+      final habitsNotifier = ref.read(habitsProvider.notifier);
+      habitsNotifier.completeHabit(habit.id);
+      timerNotifier.clearReachedZero();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('記録しました！')),
+        );
+        context.go('/');
+      }
+    });
 
     if (habit == null) {
       return Scaffold(
@@ -24,6 +51,8 @@ class TimerScreen extends ConsumerWidget {
         body: const Center(child: Text('習慣が見つかりません')),
       );
     }
+
+    final displaySeconds = _displaySeconds(habit, timerState);
 
     return Scaffold(
       appBar: AppBar(
@@ -35,7 +64,6 @@ class TimerScreen extends ConsumerWidget {
         child: Column(
           children: [
             const SizedBox(height: 24),
-            // 習慣名（画面上部）
             Text(
               habit.title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -44,11 +72,10 @@ class TimerScreen extends ConsumerWidget {
                   ),
             ),
             const SizedBox(height: 48),
-            // タイマー表示（MM:SS）
             Expanded(
               child: Center(
                 child: Text(
-                  timerState.formatted,
+                  timerState.formatSeconds(displaySeconds),
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(
                         fontFeatures: const [FontFeature.tabularFigures()],
                         letterSpacing: 2,
@@ -56,7 +83,6 @@ class TimerScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            // スタート / 一時停止 / リセット
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -65,7 +91,11 @@ class TimerScreen extends ConsumerWidget {
                   label: 'スタート',
                   onPressed: timerState.isRunning
                       ? null
-                      : () => ref.read(timerProvider.notifier).start(),
+                      : () => timerNotifier.start(
+                            timerState.remainingSeconds == 0
+                                ? habit.targetDurationSeconds
+                                : null,
+                          ),
                 ),
                 const SizedBox(width: 16),
                 _ControlButton(
@@ -73,18 +103,17 @@ class TimerScreen extends ConsumerWidget {
                   label: '一時停止',
                   onPressed: !timerState.isRunning
                       ? null
-                      : () => ref.read(timerProvider.notifier).pause(),
+                      : () => timerNotifier.pause(),
                 ),
                 const SizedBox(width: 16),
                 _ControlButton(
                   icon: Icons.refresh,
                   label: 'リセット',
-                  onPressed: () => ref.read(timerProvider.notifier).reset(),
+                  onPressed: () => timerNotifier.reset(),
                 ),
               ],
             ),
             const SizedBox(height: 32),
-            // 完了して記録する
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -104,7 +133,7 @@ class TimerScreen extends ConsumerWidget {
     final timer = ref.read(timerProvider.notifier);
     final habits = ref.read(habitsProvider.notifier);
 
-    timer.stop();
+    timer.pause();
     habits.completeHabit(habit.id);
 
     if (context.mounted) {

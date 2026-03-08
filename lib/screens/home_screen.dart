@@ -28,6 +28,10 @@ class HomeScreen extends ConsumerWidget {
                 return _HabitListTile(habit: habit);
               },
             ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/add'),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }

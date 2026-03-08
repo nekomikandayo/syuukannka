@@ -10,6 +10,7 @@ List<Habit> _initialHabits() => [
     currentStreak: 7,
     reminderTime: ReminderTime(hour: 7, minute: 0),
     isCompletedToday: true,
+    targetDurationSeconds: 60,
   ),
   const Habit(
     id: 'habit_2',
@@ -17,6 +18,7 @@ List<Habit> _initialHabits() => [
     currentStreak: 3,
     reminderTime: ReminderTime(hour: 21, minute: 30),
     isCompletedToday: false,
+    targetDurationSeconds: 600,
   ),
   const Habit(
     id: 'habit_3',
@@ -24,6 +26,7 @@ List<Habit> _initialHabits() => [
     currentStreak: 14,
     reminderTime: ReminderTime(hour: 20, minute: 0),
     isCompletedToday: false,
+    targetDurationSeconds: 10,
   ),
 ];
 
@@ -41,5 +44,10 @@ class HabitsNotifier extends Notifier<List<Habit>> {
       for (final h in state)
         h.id == id ? h.copyWith(isCompletedToday: true) : h,
     ];
+  }
+
+  /// 新しい習慣を追加する。
+  void addHabit(Habit habit) {
+    state = [...state, habit];
   }
 }

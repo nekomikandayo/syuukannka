@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../screens/add_habit_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/timer_screen.dart';
 
@@ -11,6 +12,11 @@ final goRouter = GoRouter(
       path: '/',
       name: 'home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/add',
+      name: 'addHabit',
+      builder: (context, state) => const AddHabitScreen(),
     ),
     GoRoute(
       path: '/timer/:habitId',

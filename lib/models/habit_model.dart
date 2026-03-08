@@ -1,5 +1,5 @@
 /// 習慣を表すモデル。
-/// 「継続する技術」の炎（連続日数）・リマインド時間などを保持する。
+/// 「継続する技術」の炎（連続日数）・リマインド時間・目標時間などを保持する。
 class Habit {
   const Habit({
     required this.id,
@@ -7,6 +7,7 @@ class Habit {
     this.currentStreak = 0,
     required this.reminderTime,
     this.isCompletedToday = false,
+    required this.targetDurationSeconds,
   });
 
   final String id;
@@ -14,6 +15,8 @@ class Habit {
   final int currentStreak;
   final ReminderTime reminderTime;
   final bool isCompletedToday;
+  /// 目標時間（秒）。カウントダウンタイマーの初期値に使用する。
+  final int targetDurationSeconds;
 
   Habit copyWith({
     String? id,
@@ -21,6 +24,7 @@ class Habit {
     int? currentStreak,
     ReminderTime? reminderTime,
     bool? isCompletedToday,
+    int? targetDurationSeconds,
   }) {
     return Habit(
       id: id ?? this.id,
@@ -28,6 +32,7 @@ class Habit {
       currentStreak: currentStreak ?? this.currentStreak,
       reminderTime: reminderTime ?? this.reminderTime,
       isCompletedToday: isCompletedToday ?? this.isCompletedToday,
+      targetDurationSeconds: targetDurationSeconds ?? this.targetDurationSeconds,
     );
   }
 }
