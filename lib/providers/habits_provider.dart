@@ -2,14 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 
-/// 習慣リストのモックデータを提供するプロバイダー。
-/// 将来はFirebase等のリポジトリに差し替え可能。
-final habitsProvider = Provider<List<Habit>>((ref) {
-  return _mockHabits;
-});
-
-/// 仮の習慣データ（3件）。
-final List<Habit> _mockHabits = [
+/// 習慣リストの初期データ（Notifierの初期状態用）。
+List<Habit> _initialHabits() => [
   const Habit(
     id: 'habit_1',
     title: '骨盤底筋呼吸',
@@ -32,3 +26,20 @@ final List<Habit> _mockHabits = [
     isCompletedToday: false,
   ),
 ];
+
+/// 習慣リストの状態と更新を提供する Notifier。
+/// 将来はFirebase等のリポジトリに差し替え可能。
+final habitsProvider = NotifierProvider<HabitsNotifier, List<Habit>>(HabitsNotifier.new);
+
+class HabitsNotifier extends Notifier<List<Habit>> {
+  @override
+  List<Habit> build() => _initialHabits();
+
+  /// 指定したIDの習慣の「今日の完了」を true にする。
+  void completeHabit(String id) {
+    state = [
+      for (final h in state)
+        h.id == id ? h.copyWith(isCompletedToday: true) : h,
+    ];
+  }
+}
