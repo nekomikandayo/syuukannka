@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "283877338387",
+    "project_id": "syuukan-ka-app",
+    "storage_bucket": "syuukan-ka-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283877338387:android:96625e265534d018a23ee6",
+        "android_client_info": {
+          "package_name": "com.habitapp.habit_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-1NjaU2nELoshx115WF5uUom2hJ2sS_0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,9 +1,36 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'firebase_options.dart';
+import 'providers/habits_provider.dart';
 import 'router/app_router.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      await auth.signInAnonymously();
+    }
+    final user = auth.currentUser;
+    if (user != null) {
+      await checkAndResetStreaksForUser(
+        FirebaseFirestore.instance,
+        user.uid,
+      );
+    }
+  } catch (e, st) {
+    debugPrint('Firebase init or sign-in error: $e\n$st');
+  }
+
   runApp(
     const ProviderScope(
       child: HabitApp(),

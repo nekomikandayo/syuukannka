@@ -1,52 +1,39 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/habit_model.dart';
 
-/// 習慣リストの初期データ（Notifierの初期状態用）。
-/// 日付は実行時の now を使用するため const にしない。
-List<Habit> _initialHabits() {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final yesterday = today.subtract(const Duration(days: 1));
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
 
-  return [
-    Habit(
-      id: 'habit_1',
-      title: '骨盤底筋呼吸',
-      currentStreak: 7,
-      reminderTime: const ReminderTime(hour: 7, minute: 0),
-      lastCompletedDate: today,
-      targetDurationSeconds: 60,
-    ),
-    Habit(
-      id: 'habit_2',
-      title: '読書',
-      currentStreak: 3,
-      reminderTime: const ReminderTime(hour: 21, minute: 30),
-      lastCompletedDate: yesterday,
-      targetDurationSeconds: 600,
-    ),
-    Habit(
-      id: 'habit_3',
-      title: 'プログラミング学習',
-      currentStreak: 14,
-      reminderTime: const ReminderTime(hour: 20, minute: 0),
-      lastCompletedDate: yesterday,
-      targetDurationSeconds: 10,
-    ),
-  ];
-}
+final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 
-/// 現在日付と lastCompletedDate の「日付の差」が2日以上ならストリークを0にリセットする。
-List<Habit> _applyStreakResets(List<Habit> habits) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
+final authStateProvider = StreamProvider<User?>((ref) {
+  return ref.watch(firebaseAuthProvider).authStateChanges();
+});
 
-  return [
-    for (final h in habits)
-      _shouldResetStreak(h, today) ? h.copyWith(currentStreak: 0) : h,
-  ];
-}
+final currentUserIdProvider = Provider<String?>((ref) {
+  return ref.watch(authStateProvider).valueOrNull?.uid;
+});
+
+// ---------------------------------------------------------------------------
+// Firestore 参照
+// ---------------------------------------------------------------------------
+
+final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
+
+/// 現在ユーザーの習慣サブコレクション参照。uid が null のときは null。
+final userHabitsCollectionProvider = Provider<CollectionReference<Map<String, dynamic>>?>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) return null;
+  return ref.watch(firestoreProvider).collection('users').doc(uid).collection('habits');
+});
+
+// ---------------------------------------------------------------------------
+// ストリーク判定（Firestore 書き込み前のロジック）
+// ---------------------------------------------------------------------------
 
 bool _shouldResetStreak(Habit h, DateTime today) {
   if (h.lastCompletedDate == null) return true;
@@ -59,7 +46,6 @@ bool _shouldResetStreak(Habit h, DateTime today) {
   return diffDays >= 2;
 }
 
-/// 昨日完了なら +1、今日ならそのまま、2日以上前または未完了なら 1 にする。
 int _nextStreak(Habit h) {
   if (h.lastCompletedDate == null) return 1;
   final now = DateTime.now();
@@ -70,39 +56,102 @@ int _nextStreak(Habit h) {
     h.lastCompletedDate!.day,
   );
   final diffDays = today.difference(last).inDays;
-  if (diffDays == 0) return h.currentStreak; // 今日すでに完了（二重押し対策）
-  if (diffDays == 1) return h.currentStreak + 1; // 昨日完了 → 連続
-  return 1; // 2日以上空いた or リセット後
+  if (diffDays == 0) return h.currentStreak;
+  if (diffDays == 1) return h.currentStreak + 1;
+  return 1;
 }
 
-/// 習慣リストの状態と更新を提供する Notifier。
-/// 将来はFirebase等のリポジトリに差し替え可能。
-final habitsProvider = NotifierProvider<HabitsNotifier, List<Habit>>(HabitsNotifier.new);
+// ---------------------------------------------------------------------------
+// 起動時ストリークリセット（main から呼ぶ用）
+// ---------------------------------------------------------------------------
 
-class HabitsNotifier extends Notifier<List<Habit>> {
-  @override
-  List<Habit> build() => _applyStreakResets(_initialHabits());
+/// アプリ起動後、匿名サインイン済みのユーザーに対して
+/// 2日以上未達成の習慣のストリークを 0 にリセットする。
+Future<void> checkAndResetStreaksForUser(FirebaseFirestore firestore, String uid) async {
+  final col = firestore.collection('users').doc(uid).collection('habits');
+  final snap = await col.get();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
 
-  /// アプリ起動時などに呼び、2日以上未達成の習慣のストリークを0にリセットする。
-  void checkAndResetStreaks() {
-    state = _applyStreakResets(state);
-  }
-
-  /// 指定したIDの習慣を「今日完了」にし、lastCompletedDate と currentStreak を更新する。
-  void completeHabit(String id) {
-    state = [
-      for (final h in state)
-        h.id == id
-            ? h.copyWith(
-                lastCompletedDate: DateTime.now(),
-                currentStreak: _nextStreak(h),
-              )
-            : h,
-    ];
-  }
-
-  /// 新しい習慣を追加する。
-  void addHabit(Habit habit) {
-    state = [...state, habit];
+  for (final doc in snap.docs) {
+    final data = doc.data();
+    if (data.isEmpty) continue;
+    try {
+      final h = Habit.fromJson(data, id: doc.id);
+      if (_shouldResetStreak(h, today)) {
+        await doc.reference.update({'currentStreak': 0});
+      }
+    } catch (_) {
+      // 不正ドキュメントはスキップ
+    }
   }
 }
+
+// ---------------------------------------------------------------------------
+// 習慣ストリーム（リアルタイム）
+// ---------------------------------------------------------------------------
+
+final habitsStreamProvider = StreamProvider.autoDispose<List<Habit>>((ref) {
+  final col = ref.watch(userHabitsCollectionProvider);
+  if (col == null) return Stream.value([]);
+
+  return col.snapshots().map((snap) {
+    return snap.docs.map((doc) {
+      final data = doc.data();
+      return Habit.fromJson(data, id: doc.id);
+    }).toList();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 習慣の書き込み（Repository）
+// ---------------------------------------------------------------------------
+
+final habitsRepositoryProvider = Provider<HabitsRepository>((ref) {
+  return HabitsRepository(ref);
+});
+
+class HabitsRepository {
+  HabitsRepository(this._ref);
+
+  final Ref _ref;
+
+  CollectionReference<Map<String, dynamic>>? get _col =>
+      _ref.read(userHabitsCollectionProvider);
+
+  /// 習慣を追加する。
+  Future<void> addHabit(Habit habit) async {
+    final col = _col;
+    if (col == null) throw StateError('未認証のため習慣を追加できません');
+    await col.doc(habit.id).set(habit.toJson());
+  }
+
+  /// 指定した習慣を「今日完了」にし、lastCompletedDate と currentStreak を更新する。
+  Future<void> completeHabit(String id) async {
+    final col = _col;
+    if (col == null) throw StateError('未認証のため完了できません');
+
+    final docRef = col.doc(id);
+    final doc = await docRef.get();
+    if (!doc.exists || doc.data() == null) {
+      throw StateError('習慣が見つかりません: $id');
+    }
+
+    final h = Habit.fromJson(doc.data()!, id: doc.id);
+    final now = DateTime.now();
+    final newStreak = _nextStreak(h);
+
+    await docRef.update({
+      'lastCompletedDate': Timestamp.fromDate(now),
+      'currentStreak': newStreak,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 互換用: habitsProvider を Stream の内容で提供（既存コードが ref.watch(habitsProvider) を使うため）
+// ---------------------------------------------------------------------------
+
+/// 従来の habitsProvider の代わりに使用する。Firestore のリアルタイムリストを返す。
+/// 参照時は habitsStreamProvider を watch し、AsyncValue で扱う。
+final habitsProvider = habitsStreamProvider;

@@ -19,6 +19,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   final _minutesController = TextEditingController(text: '10');
 
   TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -37,16 +38,14 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
     final minutes = int.tryParse(_minutesController.text.trim());
-    if (minutes == null || minutes <= 0) {
-      return;
-    }
+    if (minutes == null || minutes <= 0) return;
 
     final habit = Habit(
       id: 'habit_${DateTime.now().millisecondsSinceEpoch}',
@@ -57,10 +56,18 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       targetDurationSeconds: minutes * 60,
     );
 
-    ref.read(habitsProvider.notifier).addHabit(habit);
-
-    if (mounted) {
-      context.go('/');
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(habitsRepositoryProvider).addHabit(habit);
+      if (mounted) context.go('/');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -126,8 +133,14 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             SizedBox(
               height: 56,
               child: FilledButton(
-                onPressed: _save,
-                child: const Text('保存'),
+                onPressed: _isSaving ? null : _save,
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('保存'),
               ),
             ),
           ],

@@ -27,23 +27,37 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final habits = ref.watch(habitsProvider);
+    final habitsAsync = ref.watch(habitsStreamProvider);
+    final habits = habitsAsync.valueOrNull ?? [];
     final habit = habits.where((h) => h.id == widget.habitId).firstOrNull;
     final timerState = ref.watch(timerProvider);
     final timerNotifier = ref.read(timerProvider.notifier);
 
     ref.listen<TimerState>(timerProvider, (prev, next) {
       if (!next.reachedZero || habit == null) return;
-      final habitsNotifier = ref.read(habitsProvider.notifier);
-      habitsNotifier.completeHabit(habit.id);
       timerNotifier.clearReachedZero();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('記録しました！')),
-        );
-        context.go('/');
-      }
+      ref.read(habitsRepositoryProvider).completeHabit(habit.id).then((_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('記録しました！')),
+          );
+          context.go('/');
+        }
+      }).catchError((e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('記録に失敗しました: $e')),
+          );
+        }
+      });
     });
+
+    if (habitsAsync.isLoading && habits.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('タイマー')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     if (habit == null) {
       return Scaffold(
@@ -129,18 +143,25 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     );
   }
 
-  void _onComplete(BuildContext context, WidgetRef ref, Habit habit) {
+  Future<void> _onComplete(BuildContext context, WidgetRef ref, Habit habit) async {
     final timer = ref.read(timerProvider.notifier);
-    final habits = ref.read(habitsProvider.notifier);
+    final repo = ref.read(habitsRepositoryProvider);
 
     timer.pause();
-    habits.completeHabit(habit.id);
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('記録しました！')),
-      );
-      context.go('/');
+    try {
+      await repo.completeHabit(habit.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('記録しました！')),
+        );
+        context.go('/');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('記録に失敗しました: $e')),
+        );
+      }
     }
   }
 }

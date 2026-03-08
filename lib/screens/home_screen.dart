@@ -11,23 +11,63 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final habits = ref.watch(habitsProvider);
+    final habitsAsync = ref.watch(habitsStreamProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('習慣化'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: habits.isEmpty
-          ? const Center(child: Text('習慣がまだありません'))
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: habits.length,
-              itemBuilder: (context, index) {
-                final habit = habits[index];
-                return _HabitListTile(habit: habit);
-              },
+      body: habitsAsync.when(
+        loading: () => const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('読み込み中...'),
+            ],
+          ),
+        ),
+        error: (err, st) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
+                const SizedBox(height: 16),
+                Text(
+                  'データの取得に失敗しました',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  err.toString(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
+          ),
+        ),
+        data: (habits) {
+          if (habits.isEmpty) {
+            return const Center(child: Text('習慣がまだありません'));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: habits.length,
+            itemBuilder: (context, index) {
+              final habit = habits[index];
+              return _HabitListTile(habit: habit);
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/add'),
         child: const Icon(Icons.add),
